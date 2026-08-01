@@ -106,3 +106,8 @@ body{background-image:radial-gradient(circle at 78% 8%,rgba(255,118,31,.13),tran
 @keyframes brandSpin{to{transform:rotate(360deg)}}@keyframes brandPulse{50%{transform:scale(1.06);opacity:.78}}
 @media(max-width:900px){.hero{padding-right:max(24px,7vw);padding-top:430px;text-align:center}.heroBrand{width:min(72vw,430px);right:50%;top:215px;transform:translate(50%,-50%)}.hero>p,.heroRule{margin-left:auto;margin-right:auto}.hero h1{margin-left:auto;margin-right:auto}}
 @media(max-width:560px){.topbar .brandLogo{width:76px;height:66px}.hero{padding-top:335px}.heroBrand{top:170px;width:300px}.heroBrand:after{display:none}.heroBrand>span{bottom:-3%}}
+
+/* Result panel contrast lock */
+.resultPanel{color:#f5f7fb}
+.cardLabel span,.gradeCircle strong,.gradeCircle small,.gradeCircle>span,.confidence>span,.verdict strong,.verdict p,.ledger>div,.watchout p{color:#f5f7fb}
+.cardLabel small{color:#9aa6b8;opacity:1}.gradeCircle small,.gradeCircle>span,.confidence>span{color:#8e9aab}.verdict p,.watchout p{color:#98a4b5;opacity:1}.ledger>div>span{color:#9aa6b8}.ledger b{color:#f3f6fb}.watchout strong{color:#fff}
