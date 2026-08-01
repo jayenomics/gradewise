@@ -14,8 +14,9 @@ const conditionLabels: Record<ConditionKey, string> = {
 
 const gradeSteps = [6, 7, 8, 9, 10];
 
-type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number };
+type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number; manufacturer?:string|null; setName?:string|null; cardNumber?:string|null; variant?:string|null; recognitionConfidence?:number|null };
 type Account = { id:string; name:string; email:string };
+type ScanAnalysis = { manufacturer:string; setName:string; cardNumber:string; variant:string; confidence:number; conditionNotes:string[]; identificationNotes:string };
 const demoCards: CardRecord[] = [
   { id:"demo-1", name:"Chrome Rookie Refractor", type:"Basketball", year:2003, rawValue:1800, compValue:2450, imageKey:null, createdAt:1 },
   { id:"demo-2", name:"1st Edition Holo", type:"TCG", year:1999, rawValue:760, compValue:1120, imageKey:null, createdAt:2 },
@@ -40,6 +41,9 @@ export default function Home() {
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [scanAnalysis, setScanAnalysis] = useState<ScanAnalysis | null>(null);
+  const [scanError, setScanError] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [accountReady, setAccountReady] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
@@ -67,7 +71,7 @@ export default function Home() {
     const rows = await Promise.all((data || []).map(async (row) => {
       let imageUrl: string | undefined;
       if (row.image_path) imageUrl = (await supabase.storage.from("card-images").createSignedUrl(row.image_path, 3600)).data?.signedUrl;
-      return { id:row.id, name:row.name, type:row.type, year:row.year, rawValue:Number(row.raw_value), compValue:Number(row.comp_value), imageKey:row.image_path, imageUrl, createdAt:new Date(row.created_at).getTime() } as CardRecord;
+      return { id:row.id, name:row.name, type:row.type, year:row.year, rawValue:Number(row.raw_value), compValue:Number(row.comp_value), imageKey:row.image_path, imageUrl, createdAt:new Date(row.created_at).getTime(), manufacturer:row.manufacturer, setName:row.set_name, cardNumber:row.card_number, variant:row.variant, recognitionConfidence:row.recognition_confidence } as CardRecord;
     }));
     setCollection(rows); setAccountReady(true);
   };
@@ -106,6 +110,21 @@ export default function Home() {
     setAuthOpen(false); setAuth({name:"",email:"",password:""});
   };
 
+  const analyzeCard = async (file: File) => {
+    setAnalyzing(true); setScanError(""); setScanAnalysis(null);
+    const body = new FormData(); body.append("image", file);
+    try {
+      const { data:{ session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sign in to scan a card.");
+      const response = await fetch("/api/analyze-card", { method:"POST", body, headers:{ Authorization:`Bearer ${session.access_token}` } });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Could not identify this card.");
+      setScan((current) => ({ ...current, name:result.name || current.name, type:result.type || current.type, year:result.year ? String(result.year) : current.year }));
+      setScanAnalysis({ manufacturer:result.manufacturer || "Unknown", setName:result.setName || "Unknown set", cardNumber:result.cardNumber || "—", variant:result.variant || "Base / unknown", confidence:result.confidence || 0, conditionNotes:Array.isArray(result.conditionNotes) ? result.conditionNotes : [], identificationNotes:result.identificationNotes || "" });
+    } catch (error) { setScanError(error instanceof Error ? error.message : "Could not identify this card."); }
+    finally { setAnalyzing(false); }
+  };
+
   const saveCard = async () => {
     if (!scan.name.trim()) return;
     if (!account) { setAuthMode("signup"); setAuthOpen(true); return; }
@@ -118,12 +137,12 @@ export default function Home() {
         const uploaded = await supabase.storage.from("card-images").upload(imagePath, scanFile, { contentType:scanFile.type, upsert:false });
         if (uploaded.error) throw uploaded.error;
       }
-      const values = { user_id:account.id, name:scan.name, type:scan.type, year:Number(scan.year)||null, raw_value:Number(scan.rawValue)||0, comp_value:Number(scan.compValue)||Number(scan.rawValue)||0, image_path:imagePath };
+      const values = { user_id:account.id, name:scan.name, type:scan.type, year:Number(scan.year)||null, raw_value:Number(scan.rawValue)||0, comp_value:Number(scan.compValue)||Number(scan.rawValue)||0, image_path:imagePath, manufacturer:scanAnalysis?.manufacturer||null, set_name:scanAnalysis?.setName||null, card_number:scanAnalysis?.cardNumber||null, variant:scanAnalysis?.variant||null, recognition_confidence:scanAnalysis?.confidence||null, condition_notes:scanAnalysis?.conditionNotes||[] };
       const saved = await supabase.from("cards").insert(values).select().single();
       if (saved.error) throw saved.error;
-      const card: CardRecord = { id:saved.data.id, name:scan.name, type:scan.type, year:values.year, rawValue:values.raw_value, compValue:values.comp_value, imageKey:imagePath, imageUrl, createdAt:Date.now() };
+      const card: CardRecord = { id:saved.data.id, name:scan.name, type:scan.type, year:values.year, rawValue:values.raw_value, compValue:values.comp_value, imageKey:imagePath, imageUrl, createdAt:Date.now(), manufacturer:values.manufacturer, setName:values.set_name, cardNumber:values.card_number, variant:values.variant, recognitionConfidence:values.recognition_confidence };
       setCollection((current) => [card, ...current.filter((item) => !item.id.startsWith("demo-"))]);
-      setScan({ name:"", type:"Basketball", year:"", rawValue:"", compValue:"" }); setScanFile(null); setPreview("");
+      setScan({ name:"", type:"Basketball", year:"", rawValue:"", compValue:"" }); setScanFile(null); setPreview(""); setScanAnalysis(null); setScanError("");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Could not save this card. Please try again.");
     } finally { setSaving(false); }
@@ -268,9 +287,17 @@ export default function Home() {
             <div className="sectionHead"><span className="sectionNo">+</span><div><h2>Scan a card</h2><p>Front photo works best in even light.</p></div></div>
             <div className="scanTier"><span>BASE SCAN</span><b>Included with every account</b></div>
             <label className={`dropzone ${preview ? "hasImage" : ""}`} style={preview ? { backgroundImage:`url(${preview})` } : undefined}>
-              <input type="file" accept="image/*" capture="environment" onChange={(e) => { const file=e.target.files?.[0]||null; setScanFile(file); if(file) setPreview(URL.createObjectURL(file)); }} />
+              <input type="file" accept="image/*" capture="environment" onChange={(e) => { const file=e.target.files?.[0]||null; setScanFile(file); if(file) { setPreview(URL.createObjectURL(file)); analyzeCard(file); } }} />
               {!preview && <><b>+</b><span>Take photo or upload</span><small>JPG, PNG, HEIC</small></>}
+              {preview && analyzing && <span className="analyzingBadge">IDENTIFYING CARD...</span>}
             </label>
+            {scanError && <div className="scanError">{scanError}</div>}
+            {scanAnalysis && <div className="scanResult">
+              <div className="scanResultHead"><span>AI MATCH</span><b>{scanAnalysis.confidence}% confidence</b></div>
+              <dl><div><dt>Set</dt><dd>{scanAnalysis.setName}</dd></div><div><dt>Maker</dt><dd>{scanAnalysis.manufacturer}</dd></div><div><dt>Card #</dt><dd>{scanAnalysis.cardNumber}</dd></div><div><dt>Variant</dt><dd>{scanAnalysis.variant}</dd></div></dl>
+              {scanAnalysis.identificationNotes && <p>{scanAnalysis.identificationNotes}</p>}
+              {!!scanAnalysis.conditionNotes.length && <small>VISIBLE CHECKS · {scanAnalysis.conditionNotes.join(" · ")}</small>}
+            </div>}
             <div className="scanFields">
               <label><span>Card name</span><input placeholder="Player / set / card no." value={scan.name} onChange={(e)=>setScan({...scan,name:e.target.value})} /></label>
               <div><label><span>Type</span><select value={scan.type} onChange={(e)=>setScan({...scan,type:e.target.value})}><option>Basketball</option><option>Baseball</option><option>Football</option><option>Hockey</option><option>Soccer</option><option>TCG</option><option>Other</option></select></label><label><span>Year</span><input type="number" placeholder="2024" value={scan.year} onChange={(e)=>setScan({...scan,year:e.target.value})} /></label></div>
