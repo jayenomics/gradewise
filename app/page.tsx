@@ -93,15 +93,15 @@ export default function Home() {
           <span className="brandMark">GW</span>
           <span>GRADEWISE</span>
         </a>
-        <span className="edition">Collector&rsquo;s decision desk</span>
+        <span className="edition"><i /> Portfolio intelligence</span>
         <a className="textLink" href="#method">How it works <span>+</span></a>
       </header>
 
       <section className="hero" id="top">
-        <div className="eyebrow"><span>ISSUE 01</span> / PRE-GRADING INTELLIGENCE</div>
-        <h1>Know before<br />you <em>slab.</em></h1>
-        <p>Estimate the grade. Run the numbers. Decide if your card deserves a submission before fees eat your upside.</p>
-        <div className="heroRule"><span>Condition</span><span>Cost</span><span>Confidence</span></div>
+        <div className="eyebrow"><span>LIVE</span> CARD PORTFOLIO + GRADING INTELLIGENCE</div>
+        <h1>Grade smarter.<br /><em>Collect better.</em></h1>
+        <p>One command center for your collection. Track value, estimate grades, and know exactly which cards are worth the submission.</p>
+        <div className="heroRule"><span>01 / Estimate</span><span>02 / Decide</span><span>03 / Track</span></div>
       </section>
 
       <section className="workspace" aria-label="Card grading calculator">
@@ -149,7 +149,7 @@ export default function Home() {
         </div>
 
         <aside className="resultPanel" aria-live="polite">
-          <div className="resultKicker">GRADEWISE ESTIMATE / LIVE</div>
+          <div className="resultKicker"><i /> GRADEWISE ESTIMATE / LIVE</div>
           <div className="cardLabel"><span>{cardName || "Untitled card"}</span><small>Based on your inputs</small></div>
 
           <div className="gradeDisplay">
@@ -176,7 +176,7 @@ export default function Home() {
 
       <section className="vault" id="collection">
         <div className="vaultIntro">
-          <div className="eyebrow"><span>THE VAULT</span> / COLLECTION DESK</div>
+          <div className="eyebrow"><span>THE VAULT</span> / LIVE COLLECTION</div>
           <h2>Your cards.<br /><em>One market view.</em></h2>
           <p>Scan a card, save the latest comp, and keep your collection organized by category.</p>
         </div>
