@@ -257,6 +257,7 @@ export default function Home() {
         <div className="collectionGrid">
           <div className="scanCard">
             <div className="sectionHead"><span className="sectionNo">+</span><div><h2>Scan a card</h2><p>Front photo works best in even light.</p></div></div>
+            <div className="scanTier"><span>BASE SCAN</span><b>Included with every account</b></div>
             <label className={`dropzone ${preview ? "hasImage" : ""}`} style={preview ? { backgroundImage:`url(${preview})` } : undefined}>
               <input type="file" accept="image/*" capture="environment" onChange={(e) => { const file=e.target.files?.[0]||null; setScanFile(file); if(file) setPreview(URL.createObjectURL(file)); }} />
               {!preview && <><b>+</b><span>Take photo or upload</span><small>JPG, PNG, HEIC</small></>}
@@ -267,7 +268,17 @@ export default function Home() {
               <div><label><span>Raw value</span><input type="number" placeholder="$0" value={scan.rawValue} onChange={(e)=>setScan({...scan,rawValue:e.target.value})} /></label><label><span>Latest comp</span><input type="number" placeholder="$0" value={scan.compValue} onChange={(e)=>setScan({...scan,compValue:e.target.value})} /></label></div>
             </div>
             <button className="saveButton" onClick={saveCard} disabled={!scan.name.trim()||saving}>{saving?"Saving...":"Add to collection"}</button>
-            <p className="scanNote">Photo recognition and live marketplace comp matching can be connected as the next data service.</p>
+            <p className="scanNote">Basic identification and permanent portfolio storage are part of every GradeWise account.</p>
+            <div className="proIntelligence">
+              <div className="proTitle"><span>GW PRO</span><b>Unlock the decision engine</b><i>COMING SOON</i></div>
+              <div className="proGrid">
+                <div><span>01</span><b>Condition map</b><small>Surface, corner, edge and centering risks</small></div>
+                <div><span>02</span><b>Grade probability</b><small>Likely outcomes with confidence ranges</small></div>
+                <div><span>03</span><b>Submission ROI</b><small>Fees, downside and expected value</small></div>
+                <div><span>04</span><b>Premium comps</b><small>Verified sales and graded price history</small></div>
+              </div>
+              <button disabled>Join the Pro waitlist</button>
+            </div>
           </div>
 
           <div className="library">
