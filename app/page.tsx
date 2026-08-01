@@ -16,7 +16,8 @@ const gradeSteps = [6, 7, 8, 9, 10];
 
 type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number; manufacturer?:string|null; setName?:string|null; cardNumber?:string|null; variant?:string|null; recognitionConfidence?:number|null };
 type Account = { id:string; name:string; email:string };
-type ScanAnalysis = { manufacturer:string; setName:string; cardNumber:string; variant:string; confidence:number; conditionNotes:string[]; identificationNotes:string };
+type PokemonCandidate = { id:string; name:string; number:string; setName:string; series:string; releaseDate:string; rarity:string; artist:string; imageSmall:string; imageLarge:string; tcgplayerUrl:string; prices:{label:string;market:number}[]; marketPrice:number };
+type ScanAnalysis = { manufacturer:string; setName:string; cardNumber:string; variant:string; confidence:number; conditionNotes:string[]; identificationNotes:string; pokemonCandidates:PokemonCandidate[]; selectedPokemonId:string|null };
 const demoCards: CardRecord[] = [
   { id:"demo-1", name:"Chrome Rookie Refractor", type:"Basketball", year:2003, rawValue:1800, compValue:2450, imageKey:null, createdAt:1 },
   { id:"demo-2", name:"1st Edition Holo", type:"TCG", year:1999, rawValue:760, compValue:1120, imageKey:null, createdAt:2 },
@@ -42,6 +43,7 @@ export default function Home() {
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [catalogSearching, setCatalogSearching] = useState(false);
   const [scanAnalysis, setScanAnalysis] = useState<ScanAnalysis | null>(null);
   const [scanError, setScanError] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
@@ -120,9 +122,26 @@ export default function Home() {
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || "Could not identify this card.");
       setScan((current) => ({ ...current, name:result.name || current.name, type:result.type || current.type, year:result.year ? String(result.year) : current.year }));
-      setScanAnalysis({ manufacturer:result.manufacturer || "Unknown", setName:result.setName || "Unknown set", cardNumber:result.cardNumber || "—", variant:result.variant || "Base / unknown", confidence:result.confidence || 0, conditionNotes:Array.isArray(result.conditionNotes) ? result.conditionNotes : [], identificationNotes:result.identificationNotes || "" });
+      setScanAnalysis({ manufacturer:result.manufacturer || "Unknown", setName:result.setName || "Unknown set", cardNumber:result.cardNumber || "—", variant:result.variant || "Base / unknown", confidence:result.confidence || 0, conditionNotes:Array.isArray(result.conditionNotes) ? result.conditionNotes : [], identificationNotes:result.identificationNotes || "", pokemonCandidates:Array.isArray(result.pokemonCandidates)?result.pokemonCandidates:[], selectedPokemonId:null });
     } catch (error) { setScanError(error instanceof Error ? error.message : "Could not identify this card."); }
     finally { setAnalyzing(false); }
+  };
+
+  const searchPokemonCatalog = async () => {
+    setCatalogSearching(true); setScanError("");
+    try {
+      const { data:{session} }=await supabase.auth.getSession();
+      if(!session) throw new Error("Sign in to search the Pokémon catalog.");
+      const response=await fetch("/api/pokemon-search",{method:"POST",headers:{"Content-Type":"application/json",Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({name:scan.name,cardNumber:scanAnalysis?.cardNumber||""})});
+      const result=await response.json(); if(!response.ok) throw new Error(result.error||"Catalog search failed.");
+      if(!result.candidates?.length) throw new Error("No Pokémon catalog match found. Check the name and card number.");
+      setScanAnalysis((current)=>current?{...current,pokemonCandidates:result.candidates,selectedPokemonId:null}:{manufacturer:"Pokémon",setName:"Choose a match",cardNumber:"",variant:"Unknown",confidence:0,conditionNotes:[],identificationNotes:"Results based on your correction.",pokemonCandidates:result.candidates,selectedPokemonId:null});
+    } catch(error){setScanError(error instanceof Error?error.message:"Catalog search failed.");} finally{setCatalogSearching(false);}
+  };
+
+  const choosePokemon = (candidate:PokemonCandidate) => {
+    setScan((current)=>({...current,name:`${candidate.name} #${candidate.number}`,type:"TCG",year:candidate.releaseDate?.slice(0,4)||current.year,compValue:candidate.marketPrice?String(candidate.marketPrice):current.compValue}));
+    setScanAnalysis((current)=>current?{...current,manufacturer:"Pokémon",setName:candidate.setName,cardNumber:candidate.number,variant:candidate.rarity,confidence:100,selectedPokemonId:candidate.id}:current);
   };
 
   const saveCard = async () => {
@@ -297,12 +316,15 @@ export default function Home() {
               <dl><div><dt>Set</dt><dd>{scanAnalysis.setName}</dd></div><div><dt>Maker</dt><dd>{scanAnalysis.manufacturer}</dd></div><div><dt>Card #</dt><dd>{scanAnalysis.cardNumber}</dd></div><div><dt>Variant</dt><dd>{scanAnalysis.variant}</dd></div></dl>
               {scanAnalysis.identificationNotes && <p>{scanAnalysis.identificationNotes}</p>}
               {!!scanAnalysis.conditionNotes.length && <small>VISIBLE CHECKS · {scanAnalysis.conditionNotes.join(" · ")}</small>}
+              {!!scanAnalysis.pokemonCandidates.length && <div className="pokemonMatches"><h4>Confirm the Pokémon printing</h4>{scanAnalysis.pokemonCandidates.map((candidate)=><button type="button" key={candidate.id} className={scanAnalysis.selectedPokemonId===candidate.id?"selected":""} onClick={()=>choosePokemon(candidate)}><img src={candidate.imageSmall} alt=""/><span><b>{candidate.name} #{candidate.number}</b><small>{candidate.setName} · {candidate.rarity}</small><em>{candidate.marketPrice?`Market $${candidate.marketPrice.toFixed(2)}`:"No market price"}</em></span><i>{scanAnalysis.selectedPokemonId===candidate.id?"✓":"Select"}</i></button>)}</div>}
             </div>}
             <div className="scanFields">
               <label><span>Card name</span><input placeholder="Player / set / card no." value={scan.name} onChange={(e)=>setScan({...scan,name:e.target.value})} /></label>
+              {scan.type==="TCG" && <label><span>Pokémon card number</span><input placeholder="Example: 4 or 4/102" value={scanAnalysis?.cardNumber==="—"?"":scanAnalysis?.cardNumber||""} onChange={(e)=>setScanAnalysis((current)=>current?{...current,cardNumber:e.target.value}:current)} /></label>}
               <div><label><span>Type</span><select value={scan.type} onChange={(e)=>setScan({...scan,type:e.target.value})}><option>Basketball</option><option>Baseball</option><option>Football</option><option>Hockey</option><option>Soccer</option><option>TCG</option><option>Other</option></select></label><label><span>Year</span><input type="number" placeholder="2024" value={scan.year} onChange={(e)=>setScan({...scan,year:e.target.value})} /></label></div>
               <div><label><span>Raw value</span><input type="number" placeholder="$0" value={scan.rawValue} onChange={(e)=>setScan({...scan,rawValue:e.target.value})} /></label><label><span>Latest comp</span><input type="number" placeholder="$0" value={scan.compValue} onChange={(e)=>setScan({...scan,compValue:e.target.value})} /></label></div>
             </div>
+            {scan.type==="TCG" && <button className="catalogSearch" type="button" onClick={searchPokemonCatalog} disabled={!scan.name.trim()||catalogSearching}>{catalogSearching?"Searching Pokémon catalog...":"Search Pokémon prices after correction"}</button>}
             <button className="saveButton" onClick={saveCard} disabled={!scan.name.trim()||saving}>{saving?"Saving...":"Add to collection"}</button>
             <p className="scanNote">Basic identification and permanent portfolio storage are part of every GradeWise account.</p>
             <div className="proIntelligence">

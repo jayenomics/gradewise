@@ -1,3 +1,5 @@
+import { searchPokemon } from "@/lib/pokemon";
+
 export const runtime = "nodejs";
 
 const allowedTypes = ["Basketball", "Baseball", "Football", "Hockey", "Soccer", "TCG", "Other"];
@@ -18,7 +20,7 @@ export async function POST(request: Request) {
   if (image.size > 12 * 1024 * 1024) return Response.json({ error: "Please use an image smaller than 12 MB." }, { status: 413 });
 
   const dataUrl = `data:${image.type || "image/jpeg"};base64,${Buffer.from(await image.arrayBuffer()).toString("base64")}`;
-  const prompt = `Identify the collectible card in this photo. Inspect visible text, logos, card number, set marks, copyright year, player or character, parallel treatment, and sport/game. Do not invent missing details. Return only JSON with these keys: name (a search-ready title), type (exactly one of Basketball, Baseball, Football, Hockey, Soccer, TCG, Other), year (number or null), manufacturer (string), setName (string), cardNumber (string), variant (string), confidence (integer 0-100), conditionNotes (array of short visible concerns), identificationNotes (short explanation). Do not estimate a price.`;
+  const prompt = `Identify the collectible card in this photo. Inspect visible text, logos, card number, set marks, copyright year, player or character, parallel treatment, and sport/game. Do not invent missing details. Return only JSON with these keys: name (only the character name for Pokemon; otherwise a search-ready title), isPokemon (boolean), type (exactly one of Basketball, Baseball, Football, Hockey, Soccer, TCG, Other), year (number or null), manufacturer (string), setName (string), cardNumber (string), variant (string), confidence (integer 0-100), conditionNotes (array of short visible concerns), identificationNotes (short explanation). Do not estimate a price.`;
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -36,6 +38,7 @@ export async function POST(request: Request) {
     result.type = allowedTypes.includes(result.type) ? result.type : "Other";
     result.confidence = Math.max(0, Math.min(100, Number(result.confidence)||0));
     result.year = Number(result.year)||null;
+    result.pokemonCandidates = result.isPokemon ? await searchPokemon(String(result.name||""), String(result.cardNumber||"")) : [];
     return Response.json(result);
   } catch { return Response.json({ error:"Recognition returned an incomplete result. Please try again." }, { status:502 }); }
 }
