@@ -111,3 +111,9 @@ body{background-image:radial-gradient(circle at 78% 8%,rgba(255,118,31,.13),tran
 .resultPanel{color:#f5f7fb}
 .cardLabel span,.gradeCircle strong,.gradeCircle small,.gradeCircle>span,.confidence>span,.verdict strong,.verdict p,.ledger>div,.watchout p{color:#f5f7fb}
 .cardLabel small{color:#9aa6b8;opacity:1}.gradeCircle small,.gradeCircle>span,.confidence>span{color:#8e9aab}.verdict p,.watchout p{color:#98a4b5;opacity:1}.ledger>div>span{color:#9aa6b8}.ledger b{color:#f3f6fb}.watchout strong{color:#fff}
+
+/* Signed-in utility dashboard */
+.dashboardMode{background:#080b12}.dashboardMode .topbar{position:sticky;top:0}.dashboardMode .vault{min-height:calc(100vh - 82px);padding-top:38px}.dashboardMode .vaultIntro{grid-template-columns:1fr 1.2fr 1fr}.dashboardMode .vaultIntro h2{font-size:44px}.dashboardMode .portfolioStrip{margin-top:30px}.dashboardMode footer{display:none}
+@media(max-width:850px){.dashboardMode .vaultIntro{grid-template-columns:1fr 1fr}.dashboardMode .vaultIntro>p{grid-column:2}}
+@media(max-width:560px){.dashboardMode .vault{padding-top:28px}.dashboardMode .vaultIntro{display:block}.dashboardMode .vaultIntro h2{font-size:36px;margin:20px 0 10px}}
+.accountLoading{min-height:100vh;display:grid;place-items:center;align-content:center;gap:12px;background:#080b12}.accountLoading img{width:140px;height:140px;object-fit:contain;filter:drop-shadow(0 15px 35px rgba(255,118,31,.2))}.accountLoading span{color:#8d99aa;text-transform:uppercase;font-size:8px;letter-spacing:.2em;font-weight:800}

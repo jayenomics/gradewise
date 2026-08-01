@@ -154,8 +154,10 @@ export default function Home() {
     setConditions((current) => ({ ...current, [key]: value }));
   };
 
+  if (!accountReady) return <main className="accountLoading"><img src="/gradewise-logo.png" alt="GradeWise" /><span>Opening your vault...</span></main>;
+
   return (
-    <main>
+    <main className={account ? "dashboardMode" : ""}>
       <header className="topbar">
         <a className="brand" href="#top" aria-label="GradeWise home">
           <img className="brandLogo" src="/gradewise-logo.png" alt="GradeWise" />
@@ -164,6 +166,7 @@ export default function Home() {
         {account ? <button className="accountButton" onClick={()=>supabase.auth.signOut()}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
       </header>
 
+      {!account && <>
       <section className="hero" id="top">
         <div className="heroBrand" aria-hidden="true">
           <div className="brandOrbit"><i /><i /><i /></div>
@@ -245,12 +248,13 @@ export default function Home() {
           <div className="watchout"><b>WATCHOUT</b><p>Your lowest subgrade is <strong>{result.weakest.toFixed(1)}</strong>. One hidden flaw can move the result down a full grade.</p></div>
         </aside>
       </section>
+      </>}
 
       <section className="vault" id="collection">
         <div className="vaultIntro">
-          <div className="eyebrow"><span>THE VAULT</span> / LIVE COLLECTION</div>
-          <h2>Your cards.<br /><em>One market view.</em></h2>
-          <p>Scan a card, save the latest comp, and keep your collection organized by category.</p>
+          <div className="eyebrow"><span>{account ? "DASHBOARD" : "THE VAULT"}</span> / {account ? "YOUR COLLECTION" : "LIVE COLLECTION"}</div>
+          <h2>{account ? <>Your collection.</> : <>Your cards.<br /><em>One market view.</em></>}</h2>
+          <p>{account ? "Scan, value and manage every card from one place." : "Scan a card, save the latest comp, and keep your collection organized by category."}</p>
         </div>
 
         <div className="portfolioStrip">
@@ -300,14 +304,14 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="method" id="method">
+      {!account && <section className="method" id="method">
         <div><span className="sectionNo">03</span><h2>A second opinion,<br />not a guarantee.</h2></div>
         <div className="methodGrid">
           <article><b>01</b><h3>Price honestly</h3><p>Enter actual sold prices at each grade and include every submission cost.</p></article>
           <article><b>02</b><h3>Inspect ruthlessly</h3><p>Rate centering, corners, edges and surface under bright, angled light.</p></article>
           <article><b>03</b><h3>Follow the spread</h3><p>GradeWise weighs the likely outcome against your total basis and downside.</p></article>
         </div>
-      </section>
+      </section>}
 
       <footer><span>GRADEWISE / EST. 2026</span><p>Estimates are educational, not an affiliation with or guarantee from any grading company.</p></footer>
 
