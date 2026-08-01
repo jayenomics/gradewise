@@ -65,6 +65,7 @@ body{background:var(--paper);color:var(--ink);font-family:var(--font-geist-sans)
 /* Warm signal accents */
 :root{--orange:#ff7a35}
 .brandMark{background:linear-gradient(135deg,#ff9b58,#ef5b25);box-shadow:0 8px 28px rgba(255,122,53,.28)}
+.brandLogo{display:block;width:78px;height:66px;object-fit:contain;filter:drop-shadow(0 8px 18px rgba(255,122,53,.18))}
 .hero h1 em{background:linear-gradient(90deg,#7cb0ff 8%,#55d9ff 56%,#ff8a46 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 .sectionNo{background:rgba(255,122,53,.12);border-color:rgba(255,122,53,.35);color:#ff9a62}
 .verdict.hold{border-color:rgba(255,122,53,.35);background:rgba(255,122,53,.07)}
@@ -75,3 +76,16 @@ body{background:var(--paper);color:var(--ink);font-family:var(--font-geist-sans)
 .saveButton{background:linear-gradient(135deg,#ff8e4f,#ef5c26);box-shadow:0 12px 30px rgba(255,122,53,.2)}
 .rank,.libraryHead>div>span,.methodGrid b{color:#ff8c4d}
 .dropzone b{color:#ff8c4d}
+
+/* GradeWise crest system + account vault */
+:root{--brand-navy:#07101f;--brand-orange:#ff761f;--brand-gold:#f5bd4b}
+body{background-image:radial-gradient(circle at 78% 8%,rgba(255,118,31,.13),transparent 26%),radial-gradient(circle at 8% 40%,rgba(245,189,75,.05),transparent 24%)}
+.topbar{height:82px;border-bottom-color:rgba(255,139,58,.18);box-shadow:0 8px 35px rgba(0,0,0,.24)}
+.brandLogo{display:block;width:76px;height:72px;object-fit:contain;filter:drop-shadow(0 7px 16px rgba(255,118,31,.2))}
+.accountButton{margin-left:24px;border:1px solid rgba(255,139,58,.35);border-radius:999px;background:rgba(255,118,31,.08);color:#f9d6bf;padding:9px 14px;text-transform:uppercase;font-size:9px;letter-spacing:.12em;font-weight:800;cursor:pointer}.accountButton span{display:inline-grid;place-items:center;width:22px;height:22px;margin:-4px 8px -4px -7px;border-radius:50%;background:linear-gradient(135deg,var(--brand-orange),var(--brand-gold));color:#07101f}.accountButton b{color:var(--brand-orange)}
+.hero:before{border-color:rgba(255,118,31,.2);box-shadow:0 35px 100px rgba(0,0,0,.45),inset 0 0 70px rgba(255,118,31,.05)}
+.hero:after{color:rgba(255,139,58,.07);background:radial-gradient(circle at 50% 30%,rgba(255,118,31,.18),transparent 60%)}
+.authBackdrop{position:fixed;z-index:100;inset:0;display:grid;place-items:center;padding:22px;background:rgba(2,5,10,.82);backdrop-filter:blur(14px)}
+.authModal{position:relative;width:min(440px,100%);padding:25px 34px 30px;border:1px solid rgba(255,139,58,.35);border-radius:24px;background:linear-gradient(155deg,#121a28,#080d16 70%);box-shadow:0 35px 100px rgba(0,0,0,.65),0 0 65px rgba(255,118,31,.08)}
+.authModal>img{display:block;width:112px;height:105px;object-fit:contain;margin:-8px auto 1px}.authClose{position:absolute;right:15px;top:14px;border:0;background:transparent;color:#8d98a9;font-size:28px;cursor:pointer}.authTabs{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line);margin-bottom:25px}.authTabs button{border:0;border-bottom:2px solid transparent;background:transparent;color:#778398;padding:10px;text-transform:uppercase;font-size:9px;letter-spacing:.14em;font-weight:850;cursor:pointer}.authTabs button.active{color:#ff9b5b;border-color:var(--brand-orange)}.authModal h2{margin:0 0 7px;font-size:34px;letter-spacing:-.045em}.authModal>p{margin:0 0 24px;color:#8e99ab;font-size:13px;line-height:1.5}.authModal label{display:block;margin-top:16px}.authModal label span{display:block;margin-bottom:7px;color:#a4afbf;text-transform:uppercase;font-size:8px;letter-spacing:.15em;font-weight:800}.authModal input{width:100%;border:1px solid var(--line);border-radius:10px;background:#080d15;color:white;padding:12px 13px;outline:none}.authModal input:focus{border-color:rgba(255,139,58,.65);box-shadow:0 0 0 3px rgba(255,118,31,.08)}.authError{margin-top:14px;color:#ff9a73;font-size:11px}.authSubmit{width:100%;margin-top:22px;border:0;border-radius:11px;padding:14px;background:linear-gradient(135deg,var(--brand-orange),#e95718);color:white;text-transform:uppercase;font-size:10px;letter-spacing:.14em;font-weight:900;cursor:pointer;box-shadow:0 13px 30px rgba(255,118,31,.2)}.authModal>small{display:block;text-align:center;margin-top:12px;color:#657084;font-size:9px}
+@media(max-width:560px){.topbar{height:72px}.brandLogo{width:66px;height:62px}.edition{display:none}.accountButton{margin-left:auto;padding:8px 11px}.authModal{padding:22px}.authModal>img{width:95px;height:90px}}

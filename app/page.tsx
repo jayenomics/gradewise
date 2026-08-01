@@ -13,7 +13,8 @@ const conditionLabels: Record<ConditionKey, string> = {
 
 const gradeSteps = [6, 7, 8, 9, 10];
 
-type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; createdAt:number };
+type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number };
+type Account = { name:string; email:string };
 const demoCards: CardRecord[] = [
   { id:"demo-1", name:"Chrome Rookie Refractor", type:"Basketball", year:2003, rawValue:1800, compValue:2450, imageKey:null, createdAt:1 },
   { id:"demo-2", name:"1st Edition Holo", type:"TCG", year:1999, rawValue:760, compValue:1120, imageKey:null, createdAt:2 },
@@ -38,26 +39,69 @@ export default function Home() {
   const [scanFile, setScanFile] = useState<File | null>(null);
   const [preview, setPreview] = useState("");
   const [saving, setSaving] = useState(false);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [accountReady, setAccountReady] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signup"|"login">("signup");
+  const [auth, setAuth] = useState({ name:"", email:"", password:"" });
+  const [authError, setAuthError] = useState("");
 
   useEffect(() => {
-    fetch("/api/cards").then((r) => r.ok ? r.json() : []).then((cards: CardRecord[]) => { if (cards.length) setCollection(cards); }).catch(() => {});
+    const saved = localStorage.getItem("gradewise:session");
+    if (saved) {
+      const current = JSON.parse(saved) as Account;
+      setAccount(current);
+      const portfolio = localStorage.getItem(`gradewise:portfolio:${current.email}`);
+      setCollection(portfolio ? JSON.parse(portfolio) : demoCards);
+    }
+    setAccountReady(true);
   }, []);
+
+  useEffect(() => {
+    if (accountReady && account) localStorage.setItem(`gradewise:portfolio:${account.email}`, JSON.stringify(collection));
+  }, [accountReady, account, collection]);
+
+  const imageToDataUrl = (file: File) => new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const image = new Image();
+      image.onload = () => {
+        const scale = Math.min(1, 1200 / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale); canvas.height = Math.round(image.height * scale);
+        canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/jpeg", .78));
+      };
+      image.src = String(reader.result);
+    };
+    reader.readAsDataURL(file);
+  });
+
+  const submitAuth = () => {
+    setAuthError("");
+    const email = auth.email.trim().toLowerCase();
+    if (!email || auth.password.length < 6 || (authMode === "signup" && !auth.name.trim())) { setAuthError("Enter your name, email, and a password with 6+ characters."); return; }
+    const users = JSON.parse(localStorage.getItem("gradewise:accounts") || "{}") as Record<string,{name:string;password:string}>;
+    if (authMode === "signup") {
+      if (users[email]) { setAuthError("That account already exists. Try signing in."); return; }
+      users[email] = { name:auth.name.trim(), password:auth.password };
+      localStorage.setItem("gradewise:accounts", JSON.stringify(users));
+    } else if (!users[email] || users[email].password !== auth.password) { setAuthError("Email or password doesn’t match."); return; }
+    const next = { name:users[email].name, email };
+    localStorage.setItem("gradewise:session", JSON.stringify(next)); setAccount(next);
+    const portfolio = localStorage.getItem(`gradewise:portfolio:${email}`); setCollection(portfolio ? JSON.parse(portfolio) : []);
+    setAuthOpen(false); setAuth({name:"",email:"",password:""});
+  };
 
   const saveCard = async () => {
     if (!scan.name.trim()) return;
+    if (!account) { setAuthMode("signup"); setAuthOpen(true); return; }
     setSaving(true);
-    const form = new FormData();
-    Object.entries(scan).forEach(([key, value]) => form.append(key, value));
-    if (scanFile) form.append("image", scanFile);
     try {
-      const response = await fetch("/api/cards", { method:"POST", body:form });
-      if (!response.ok) throw new Error("save failed");
-      const card = await response.json();
+      const imageUrl = scanFile ? await imageToDataUrl(scanFile) : undefined;
+      const card: CardRecord = { id:crypto.randomUUID(), name:scan.name, type:scan.type, year:Number(scan.year)||null, rawValue:Number(scan.rawValue)||0, compValue:Number(scan.compValue)||Number(scan.rawValue)||0, imageKey:null, imageUrl, createdAt:Date.now() };
       setCollection((current) => [card, ...current.filter((item) => !item.id.startsWith("demo-"))]);
       setScan({ name:"", type:"Basketball", year:"", rawValue:"", compValue:"" }); setScanFile(null); setPreview("");
-    } catch {
-      const card: CardRecord = { id:crypto.randomUUID(), name:scan.name, type:scan.type, year:Number(scan.year)||null, rawValue:Number(scan.rawValue)||0, compValue:Number(scan.compValue)||Number(scan.rawValue)||0, imageKey:null, createdAt:Date.now() };
-      setCollection((current) => [card, ...current]);
     } finally { setSaving(false); }
   };
 
@@ -90,11 +134,10 @@ export default function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="#top" aria-label="GradeWise home">
-          <span className="brandMark">GW</span>
-          <span>GRADEWISE</span>
+          <img className="brandLogo" src="/gradewise-logo.png" alt="GradeWise" />
         </a>
         <span className="edition"><i /> Portfolio intelligence</span>
-        <a className="textLink" href="#method">How it works <span>+</span></a>
+        {account ? <button className="accountButton" onClick={()=>{localStorage.removeItem("gradewise:session");setAccount(null);setCollection(demoCards)}}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
       </header>
 
       <section className="hero" id="top">
@@ -208,7 +251,7 @@ export default function Home() {
             <div className="cardList">
               {shownCards.sort((a,b)=>b.compValue-a.compValue).map((card,index)=><article key={card.id} className="collectionCard">
                 <div className="rank">{String(index+1).padStart(2,"0")}</div>
-                <div className="thumb">{card.imageKey?<img src={`/api/cards/image/${encodeURIComponent(card.imageKey)}`} alt=""/>:<span>{card.type.slice(0,2).toUpperCase()}</span>}</div>
+                <div className="thumb">{card.imageUrl?<img src={card.imageUrl} alt=""/>:card.imageKey?<img src={`/api/cards/image/${encodeURIComponent(card.imageKey)}`} alt=""/>:<span>{card.type.slice(0,2).toUpperCase()}</span>}</div>
                 <div className="cardMeta"><small>{card.year || "YEAR N/A"} / {card.type}</small><h4>{card.name}</h4><button onClick={()=>{setCardName(card.name);setRawValue(card.rawValue);document.getElementById("top")?.scrollIntoView()}}>Run grade check +</button></div>
                 <div className="cardValue"><small>Latest comp</small><strong>${card.compValue.toLocaleString()}</strong><span>Raw ${card.rawValue.toLocaleString()}</span></div>
               </article>)}
@@ -227,6 +270,22 @@ export default function Home() {
       </section>
 
       <footer><span>GRADEWISE / EST. 2026</span><p>Estimates are educational, not an affiliation with or guarantee from any grading company.</p></footer>
+
+      {authOpen && <div className="authBackdrop" onMouseDown={(e)=>{if(e.target===e.currentTarget)setAuthOpen(false)}}>
+        <section className="authModal" role="dialog" aria-modal="true" aria-label="GradeWise account">
+          <button className="authClose" onClick={()=>setAuthOpen(false)}>×</button>
+          <img src="/gradewise-logo.png" alt="GradeWise" />
+          <div className="authTabs"><button className={authMode==="signup"?"active":""} onClick={()=>{setAuthMode("signup");setAuthError("")}}>Create account</button><button className={authMode==="login"?"active":""} onClick={()=>{setAuthMode("login");setAuthError("")}}>Sign in</button></div>
+          <h2>{authMode==="signup"?"Build your vault.":"Welcome back."}</h2>
+          <p>Your cards and scans stay attached to this account on this device.</p>
+          {authMode==="signup" && <label><span>Name</span><input autoFocus value={auth.name} onChange={e=>setAuth({...auth,name:e.target.value})} /></label>}
+          <label><span>Email</span><input type="email" value={auth.email} onChange={e=>setAuth({...auth,email:e.target.value})} /></label>
+          <label><span>Password</span><input type="password" value={auth.password} onChange={e=>setAuth({...auth,password:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")submitAuth()}} /></label>
+          {authError && <div className="authError">{authError}</div>}
+          <button className="authSubmit" onClick={submitAuth}>{authMode==="signup"?"Create my account":"Sign in"}</button>
+          <small>Testing mode · stored locally in this browser</small>
+        </section>
+      </div>}
     </main>
   );
 }
