@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type ConditionKey = "centering" | "corners" | "edges" | "surface";
 
@@ -14,7 +15,7 @@ const conditionLabels: Record<ConditionKey, string> = {
 const gradeSteps = [6, 7, 8, 9, 10];
 
 type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number };
-type Account = { name:string; email:string };
+type Account = { id:string; name:string; email:string };
 const demoCards: CardRecord[] = [
   { id:"demo-1", name:"Chrome Rookie Refractor", type:"Basketball", year:2003, rawValue:1800, compValue:2450, imageKey:null, createdAt:1 },
   { id:"demo-2", name:"1st Edition Holo", type:"TCG", year:1999, rawValue:760, compValue:1120, imageKey:null, createdAt:2 },
@@ -45,21 +46,31 @@ export default function Home() {
   const [authMode, setAuthMode] = useState<"signup"|"login">("signup");
   const [auth, setAuth] = useState({ name:"", email:"", password:"" });
   const [authError, setAuthError] = useState("");
+  const [authNotice, setAuthNotice] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("gradewise:session");
-    if (saved) {
-      const current = JSON.parse(saved) as Account;
-      setAccount(current);
-      const portfolio = localStorage.getItem(`gradewise:portfolio:${current.email}`);
-      setCollection(portfolio ? JSON.parse(portfolio) : demoCards);
-    }
-    setAccountReady(true);
+    const connect = async () => {
+      const { data } = await supabase.auth.getSession();
+      if (data.session) await loadAccount(data.session.user.id, data.session.user.email || "", data.session.user.user_metadata?.name || "Collector");
+      else { setCollection(demoCards); setAccountReady(true); }
+    };
+    connect();
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) { setAccount(null); setCollection(demoCards); setAccountReady(true); }
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (accountReady && account) localStorage.setItem(`gradewise:portfolio:${account.email}`, JSON.stringify(collection));
-  }, [accountReady, account, collection]);
+  const loadAccount = async (id:string, email:string, name:string) => {
+    setAccount({ id, email, name });
+    const { data } = await supabase.from("cards").select("*").order("comp_value", { ascending:false });
+    const rows = await Promise.all((data || []).map(async (row) => {
+      let imageUrl: string | undefined;
+      if (row.image_path) imageUrl = (await supabase.storage.from("card-images").createSignedUrl(row.image_path, 3600)).data?.signedUrl;
+      return { id:row.id, name:row.name, type:row.type, year:row.year, rawValue:Number(row.raw_value), compValue:Number(row.comp_value), imageKey:row.image_path, imageUrl, createdAt:new Date(row.created_at).getTime() } as CardRecord;
+    }));
+    setCollection(rows); setAccountReady(true);
+  };
 
   const imageToDataUrl = (file: File) => new Promise<string>((resolve) => {
     const reader = new FileReader();
@@ -77,19 +88,21 @@ export default function Home() {
     reader.readAsDataURL(file);
   });
 
-  const submitAuth = () => {
+  const submitAuth = async () => {
     setAuthError("");
+    setAuthNotice("");
     const email = auth.email.trim().toLowerCase();
     if (!email || auth.password.length < 6 || (authMode === "signup" && !auth.name.trim())) { setAuthError("Enter your name, email, and a password with 6+ characters."); return; }
-    const users = JSON.parse(localStorage.getItem("gradewise:accounts") || "{}") as Record<string,{name:string;password:string}>;
     if (authMode === "signup") {
-      if (users[email]) { setAuthError("That account already exists. Try signing in."); return; }
-      users[email] = { name:auth.name.trim(), password:auth.password };
-      localStorage.setItem("gradewise:accounts", JSON.stringify(users));
-    } else if (!users[email] || users[email].password !== auth.password) { setAuthError("Email or password doesn’t match."); return; }
-    const next = { name:users[email].name, email };
-    localStorage.setItem("gradewise:session", JSON.stringify(next)); setAccount(next);
-    const portfolio = localStorage.getItem(`gradewise:portfolio:${email}`); setCollection(portfolio ? JSON.parse(portfolio) : []);
+      const { data, error } = await supabase.auth.signUp({ email, password:auth.password, options:{ data:{ name:auth.name.trim() }, emailRedirectTo:window.location.origin } });
+      if (error) { setAuthError(error.message); return; }
+      if (!data.session) { setAuthNotice("Check your email to confirm the account, then sign in."); return; }
+      await loadAccount(data.user!.id, email, auth.name.trim());
+    } else {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password:auth.password });
+      if (error) { setAuthError(error.message); return; }
+      await loadAccount(data.user.id, email, data.user.user_metadata?.name || "Collector");
+    }
     setAuthOpen(false); setAuth({name:"",email:"",password:""});
   };
 
@@ -99,9 +112,20 @@ export default function Home() {
     setSaving(true);
     try {
       const imageUrl = scanFile ? await imageToDataUrl(scanFile) : undefined;
-      const card: CardRecord = { id:crypto.randomUUID(), name:scan.name, type:scan.type, year:Number(scan.year)||null, rawValue:Number(scan.rawValue)||0, compValue:Number(scan.compValue)||Number(scan.rawValue)||0, imageKey:null, imageUrl, createdAt:Date.now() };
+      let imagePath: string | null = null;
+      if (scanFile) {
+        imagePath = `${account.id}/${crypto.randomUUID()}-${scanFile.name.replace(/[^a-zA-Z0-9._-]/g,"-")}`;
+        const uploaded = await supabase.storage.from("card-images").upload(imagePath, scanFile, { contentType:scanFile.type, upsert:false });
+        if (uploaded.error) throw uploaded.error;
+      }
+      const values = { user_id:account.id, name:scan.name, type:scan.type, year:Number(scan.year)||null, raw_value:Number(scan.rawValue)||0, comp_value:Number(scan.compValue)||Number(scan.rawValue)||0, image_path:imagePath };
+      const saved = await supabase.from("cards").insert(values).select().single();
+      if (saved.error) throw saved.error;
+      const card: CardRecord = { id:saved.data.id, name:scan.name, type:scan.type, year:values.year, rawValue:values.raw_value, compValue:values.comp_value, imageKey:imagePath, imageUrl, createdAt:Date.now() };
       setCollection((current) => [card, ...current.filter((item) => !item.id.startsWith("demo-"))]);
       setScan({ name:"", type:"Basketball", year:"", rawValue:"", compValue:"" }); setScanFile(null); setPreview("");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Could not save this card. Please try again.");
     } finally { setSaving(false); }
   };
 
@@ -137,7 +161,7 @@ export default function Home() {
           <img className="brandLogo" src="/gradewise-logo.png" alt="GradeWise" />
         </a>
         <span className="edition"><i /> Portfolio intelligence</span>
-        {account ? <button className="accountButton" onClick={()=>{localStorage.removeItem("gradewise:session");setAccount(null);setCollection(demoCards)}}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
+        {account ? <button className="accountButton" onClick={()=>supabase.auth.signOut()}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
       </header>
 
       <section className="hero" id="top">
@@ -282,6 +306,7 @@ export default function Home() {
           <label><span>Email</span><input type="email" value={auth.email} onChange={e=>setAuth({...auth,email:e.target.value})} /></label>
           <label><span>Password</span><input type="password" value={auth.password} onChange={e=>setAuth({...auth,password:e.target.value})} onKeyDown={e=>{if(e.key==="Enter")submitAuth()}} /></label>
           {authError && <div className="authError">{authError}</div>}
+          {authNotice && <div className="authNotice">{authNotice}</div>}
           <button className="authSubmit" onClick={submitAuth}>{authMode==="signup"?"Create my account":"Sign in"}</button>
           <small>Testing mode · stored locally in this browser</small>
         </section>
