@@ -165,6 +165,11 @@ export default function Home() {
       </header>
 
       <section className="hero" id="top">
+        <div className="heroBrand" aria-hidden="true">
+          <div className="brandOrbit"><i /><i /><i /></div>
+          <img src="/gradewise-logo.png" alt="" />
+          <span>SCAN <b>•</b> GRADE <b>•</b> VALUE</span>
+        </div>
         <div className="eyebrow"><span>LIVE</span> CARD PORTFOLIO + GRADING INTELLIGENCE</div>
         <h1>Grade smarter.<br /><em>Collect better.</em></h1>
         <p>One command center for your collection. Track value, estimate grades, and know exactly which cards are worth the submission.</p>
