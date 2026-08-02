@@ -39,3 +39,16 @@ create policy "Users view own card images" on storage.objects for select
 using (bucket_id = 'card-images' and (storage.foldername(name))[1] = auth.uid()::text);
 create policy "Users delete own card images" on storage.objects for delete
 using (bucket_id = 'card-images' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create table if not exists public.account_entitlements (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  plan text not null default 'free' check (plan in ('free', 'pro', 'founder')),
+  role text not null default 'member' check (role in ('member', 'admin', 'owner')),
+  scan_limit integer,
+  features jsonb not null default '{}'::jsonb,
+  updated_at timestamptz not null default now()
+);
+alter table public.account_entitlements enable row level security;
+drop policy if exists "Users read own entitlements" on public.account_entitlements;
+create policy "Users read own entitlements" on public.account_entitlements
+for select using (auth.uid() = user_id);

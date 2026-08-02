@@ -15,7 +15,7 @@ const conditionLabels: Record<ConditionKey, string> = {
 const gradeSteps = [6, 7, 8, 9, 10];
 
 type CardRecord = { id:string; name:string; type:string; year:number|null; rawValue:number; compValue:number; imageKey:string|null; imageUrl?:string; createdAt:number; manufacturer?:string|null; setName?:string|null; cardNumber?:string|null; variant?:string|null; recognitionConfidence?:number|null };
-type Account = { id:string; name:string; email:string };
+type Account = { id:string; name:string; email:string; plan:"free"|"pro"|"founder"; role:"member"|"admin"|"owner" };
 type PokemonCandidate = { id:string; name:string; number:string; setName:string; series:string; releaseDate:string; rarity:string; artist:string; imageSmall:string; imageLarge:string; tcgplayerUrl:string; prices:{label:string;market:number}[]; marketPrice:number };
 type ScanAnalysis = { manufacturer:string; setName:string; cardNumber:string; variant:string; confidence:number; conditionNotes:string[]; identificationNotes:string; pokemonCandidates:PokemonCandidate[]; selectedPokemonId:string|null };
 const demoCards: CardRecord[] = [
@@ -68,7 +68,8 @@ export default function Home() {
   }, []);
 
   const loadAccount = async (id:string, email:string, name:string) => {
-    setAccount({ id, email, name });
+    const { data:entitlement } = await supabase.from("account_entitlements").select("plan,role").eq("user_id",id).maybeSingle();
+    setAccount({ id, email, name, plan:entitlement?.plan||"free", role:entitlement?.role||"member" });
     const { data } = await supabase.from("cards").select("*").order("comp_value", { ascending:false });
     const rows = await Promise.all((data || []).map(async (row) => {
       let imageUrl: string | undefined;
@@ -201,7 +202,7 @@ export default function Home() {
           <img className="brandLogo" src="/gradewise-logo.png" alt="GradeWise" />
         </a>
         <span className="edition"><i /> Portfolio intelligence</span>
-        {account ? <button className="accountButton" onClick={()=>supabase.auth.signOut()}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
+        {account ? <button className="accountButton" onClick={()=>supabase.auth.signOut()}><span>{account.name.slice(0,1).toUpperCase()}</span>{account.name}{account.plan==="founder"&&<b>FOUNDER</b>} · Sign out</button> : <button className="accountButton" onClick={()=>setAuthOpen(true)}>Create account <b>+</b></button>}
       </header>
 
       {!account && <>
@@ -304,7 +305,7 @@ export default function Home() {
         <div className="collectionGrid">
           <div className="scanCard">
             <div className="sectionHead"><span className="sectionNo">+</span><div><h2>Scan a card</h2><p>Front photo works best in even light.</p></div></div>
-            <div className="scanTier"><span>BASE SCAN</span><b>Included with every account</b></div>
+            <div className="scanTier"><span>{account?.plan==="founder"?"FOUNDER ACCESS":"BASE SCAN"}</span><b>{account?.plan==="founder"?"Unlimited scans · Owner":"Included with every account"}</b></div>
             <label className={`dropzone ${preview ? "hasImage" : ""}`} style={preview ? { backgroundImage:`url(${preview})` } : undefined}>
               <input type="file" accept="image/*" capture="environment" onChange={(e) => { const file=e.target.files?.[0]||null; setScanFile(file); if(file) { setPreview(URL.createObjectURL(file)); analyzeCard(file); } }} />
               {!preview && <><b>+</b><span>Take photo or upload</span><small>JPG, PNG, HEIC</small></>}
